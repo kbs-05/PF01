@@ -7,13 +7,11 @@ interface Student {
   id: string;
   name: string;
   class: string;
-  // autres propriétés si nécessaire
 }
 
 interface Payment {
   studentName: string;
   month: string;
-  // autres propriétés si nécessaire
 }
 
 export default function StudentList() {
@@ -62,9 +60,11 @@ export default function StudentList() {
 
   const classes = Array.from(new Set(students.map(s => s.class)));
 
+  // ✅ Correction ici : prise en charge des paiements multiples (séparés par virgule)
   const hasPayment = (studentName: string, month: string) => {
     return payments.some(payment =>
-      payment.studentName === studentName && payment.month === month
+      payment.studentName === studentName &&
+      payment.month.split(',').map(m => m.trim()).includes(month)
     );
   };
 
