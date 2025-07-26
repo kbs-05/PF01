@@ -7,7 +7,7 @@ import { generateReceipt, downloadReceipt } from '../lib/receipt';
 type Payment = {
   id: string;
   studentName: string;
-  month: string;
+  month: string; // chaîne concaténée des mois sélectionnés
   amount: number;
   paymentMethod: string;
   date: string;
@@ -17,7 +17,7 @@ export default function PaymentForm() {
   const [formData, setFormData] = useState({
     class: '',
     studentName: '',
-    month: '',
+    month: [] as string[],
     amount: ''
   });
 
@@ -28,7 +28,22 @@ export default function PaymentForm() {
   const [lastPayment, setLastPayment] = useState<Payment | null>(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
-  const months = ['Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai'];
+  const months = [
+    'INSCRIPTION',
+    'FOURNITURE',
+    'TENUE',
+    'POLO',
+    'POLO DE SPORT',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre',
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai'
+  ];
   const classes = ['2ANS', '3ANS', '4ANS', '5ANS', 'CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2'];
 
   useEffect(() => {
@@ -48,7 +63,7 @@ export default function PaymentForm() {
 
     const { class: selectedClass, studentName, month, amount } = formData;
 
-    if (!selectedClass || !studentName || !month || !amount) {
+    if (!selectedClass || !studentName || month.length === 0 || !amount) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -58,7 +73,7 @@ export default function PaymentForm() {
     try {
       const payment: Payment = {
         studentName,
-        month,
+        month: month.join(', '), // convertir tableau en chaîne
         amount: parseFloat(amount),
         paymentMethod: 'cash',
         date: new Date().toISOString(),
@@ -78,7 +93,7 @@ export default function PaymentForm() {
   };
 
   const handleNewPayment = () => {
-    setFormData({ class: '', studentName: '', month: '', amount: '' });
+    setFormData({ class: '', studentName: '', month: [], amount: '' });
     setStudentInputType('list');
     setShowSuccess(false);
     setPaymentCompleted(false);
@@ -87,17 +102,28 @@ export default function PaymentForm() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
 
     if (name === 'class') {
       setFormData(prev => ({
         ...prev,
-        studentName: ''
+        class: value,
+        studentName: '' // reset studentName quand la classe change
+      }));
+    } else if (name !== 'month') { // ignore le champ 'month' ici, il est géré par handleMonthChange
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
       }));
     }
+  };
+
+  // Gestion dédiée du select multiple pour 'month'
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = Array.from(e.target.selectedOptions).map(option => option.value);
+    setFormData(prev => ({
+      ...prev,
+      month: selected
+    }));
   };
 
   const handleStudentInputTypeChange = (type: 'list' | 'manual') => {
@@ -133,15 +159,24 @@ export default function PaymentForm() {
                 <span className="text-green-800">Paiement enregistré avec succès !</span>
               </div>
               <div className="flex space-x-2">
-                <button onClick={handlePrintReceipt} className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors whitespace-nowrap cursor-pointer">
+                <button
+                  onClick={handlePrintReceipt}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors whitespace-nowrap cursor-pointer"
+                >
                   <i className="ri-printer-line w-4 h-4 mr-1 flex items-center justify-center"></i>
                   Imprimer
                 </button>
-                <button onClick={handleDownloadReceipt} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors whitespace-nowrap cursor-pointer">
+                <button
+                  onClick={handleDownloadReceipt}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors whitespace-nowrap cursor-pointer"
+                >
                   <i className="ri-download-line w-4 h-4 mr-1 flex items-center justify-center"></i>
                   Télécharger
                 </button>
-                <button onClick={handleNewPayment} className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 transition-colors whitespace-nowrap cursor-pointer">
+                <button
+                  onClick={handleNewPayment}
+                  className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 transition-colors whitespace-nowrap cursor-pointer"
+                >
                   <i className="ri-add-line w-4 h-4 mr-1 flex items-center justify-center"></i>
                   Nouveau paiement
                 </button>
@@ -220,7 +255,7 @@ export default function PaymentForm() {
                     disabled={!formData.class || paymentCompleted}
                   >
                     <option value="">
-                      {formData.class ? 'Sélectionner un élève' : 'Choisir d\'abord une classe'}
+                      {formData.class ? "Sélectionner un élève" : "Choisir d'abord une classe"}
                     </option>
                     {filteredStudents.map((student, index) => (
                       <option key={index} value={student.name}>
@@ -249,25 +284,22 @@ export default function PaymentForm() {
               <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-2">
                 Mois de paiement *
               </label>
-              <div className="relative">
-                <select
-                  id="month"
-                  name="month"
-                  value={formData.month}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none pr-8"
-                  required
-                  disabled={paymentCompleted}
-                >
-                  <option value="">Sélectionner un mois</option>
-                  {months.map((month, index) => (
-                    <option key={index} value={month}>
-                      {month}
-                    </option>
-                  ))}
-                </select>
-                <i className="ri-arrow-down-s-line absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 flex items-center justify-center pointer-events-none"></i>
-              </div>
+              <select
+                id="month"
+                name="month"
+                multiple
+                value={formData.month}
+                onChange={handleMonthChange}
+                className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+                disabled={paymentCompleted}
+              >
+                {months.map((month, index) => (
+                  <option key={index} value={month}>
+                    {month}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -306,7 +338,9 @@ export default function PaymentForm() {
               </div>
               <div className="flex justify-between">
                 <span className="text-blue-700">Mois:</span>
-                <span className="text-blue-900">{formData.month || 'Non sélectionné'}</span>
+                <span className="text-blue-900">
+                  {formData.month.length > 0 ? formData.month.join(', ') : 'Non sélectionné'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-blue-700">Montant:</span>
@@ -340,7 +374,7 @@ export default function PaymentForm() {
               <button
                 type="button"
                 onClick={() => {
-                  setFormData({ class: '', studentName: '', month: '', amount: '' });
+                  setFormData({ class: '', studentName: '', month: [], amount: '' });
                   setStudentInputType('list');
                 }}
                 className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors whitespace-nowrap cursor-pointer"

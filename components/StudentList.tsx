@@ -23,8 +23,20 @@ export default function StudentList() {
   const [selectedClass, setSelectedClass] = useState('');
 
   const months = [
-    'Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier',
-    'Février', 'Mars', 'Avril', 'Mai'
+    'INSCRIPTION',
+    'FOURNITURE',
+    'TENUE',
+    'POLO',
+    'POLO DE SPORT',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre',
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai'
   ];
 
   useEffect(() => {
@@ -128,8 +140,11 @@ export default function StudentList() {
                   Classe
                 </th>
                 {months.map((month, index) => (
-                  <th key={index} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {month.substring(0, 3)}
+                  <th
+                    key={index}
+                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    {month.length > 5 ? month.substring(0, 5) : month.substring(0, 3)}
                   </th>
                 ))}
               </tr>
