@@ -1,4 +1,3 @@
-
 interface Payment {
   id: string;
   studentName: string;
@@ -6,6 +5,7 @@ interface Payment {
   amount: number;
   paymentMethod: string;
   date: string;
+  academicYear: string;
 }
 
 export const generateReceipt = (payment: Payment): void => {
@@ -14,6 +14,7 @@ export const generateReceipt = (payment: Payment): void => {
   if (printWindow) {
     printWindow.document.write(receiptContent);
     printWindow.document.close();
+    printWindow.focus();
     printWindow.print();
   }
 };
@@ -36,127 +37,145 @@ const getReceiptHTML = (payment: Payment): string => {
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="UTF-8">
+      <meta charset="UTF-8" />
       <title>Reçu de paiement</title>
       <style>
+        @media print {
+          @page {
+            size: A5 portrait;
+            margin: 10mm;
+          }
+        }
+
         body {
           font-family: Arial, sans-serif;
-          max-width: 600px;
+          font-size: 10px;
           margin: 0 auto;
-          padding: 20px;
-          line-height: 1.6;
+          padding: 10px;
+          width: 100%;
+          max-width: 420px;
+          line-height: 1.3;
+          color: #212529;
         }
+
         .header {
           text-align: center;
-          border-bottom: 2px solid #333;
-          padding-bottom: 20px;
-          margin-bottom: 30px;
-        }
-        .school-name {
-          font-size: 24px;
-          font-weight: bold;
-          color: #2563eb;
+          border-bottom: 1px solid #333;
+          padding-bottom: 10px;
           margin-bottom: 10px;
         }
-        .receipt-title {
-          font-size: 20px;
+
+        .school-name {
+          font-size: 14px;
           font-weight: bold;
-          color: #333;
-          margin-bottom: 30px;
+          color: #2563eb;
+          margin-bottom: 4px;
         }
+
+        .contact {
+          font-size: 9px;
+        }
+
+        .receipt-title {
+          font-size: 12px;
+          font-weight: bold;
+          text-align: center;
+          margin: 10px 0;
+        }
+
         .receipt-info {
-          background-color: #f8f9fa;
-          padding: 20px;
-          border-radius: 8px;
-          margin-bottom: 20px;
+          background-color: #f1f1f1;
+          padding: 10px;
+          border-radius: 6px;
         }
+
         .info-row {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 10px;
-          padding: 8px 0;
-          border-bottom: 1px solid #dee2e6;
+          margin: 4px 0;
+          border-bottom: 1px dashed #ccc;
+          padding-bottom: 2px;
         }
+
         .info-label {
           font-weight: bold;
-          color: #495057;
         }
-        .info-value {
-          color: #212529;
-        }
+
         .amount {
-          font-size: 18px;
           font-weight: bold;
+          font-size: 11px;
           color: #28a745;
         }
-        .footer {
-          text-align: center;
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 1px solid #dee2e6;
-          color: #6c757d;
-          font-size: 14px;
-        }
+
         .signature {
-          margin-top: 30px;
           text-align: right;
+          margin-top: 12px;
         }
+
         .signature-line {
           border-top: 1px solid #333;
-          width: 200px;
-          margin: 20px 0 5px auto;
+          width: 120px;
+          margin-top: 15px;
+          margin-bottom: 3px;
+          float: right;
         }
-        @media print {
-          body { margin: 0; padding: 10px; }
-          .header { margin-bottom: 20px; }
+
+        .footer {
+          text-align: center;
+          font-size: 8px;
+          margin-top: 12px;
+          color: #555;
         }
       </style>
     </head>
     <body>
       <div class="header">
         <div class="school-name">Pierre de la Fontaine</div>
-        <div>AKAE après l'Ecole publique Ozoungue</div>
-        <div>Tél: 077 71 55 10 / 066 31 07 08 / 077 80 27 78 / 066 30 01 40</div>
+        <div class="contact">AKAE après l'École publique Ozoungue</div>
+        <div class="contact">Tél : 077 71 55 10 / 066 31 07 08 / 077 80 27 78 / 066 30 01 40</div>
       </div>
 
       <div class="receipt-title">REÇU DE PAIEMENT</div>
 
       <div class="receipt-info">
         <div class="info-row">
-          <span class="info-label">N° de reçu:</span>
-          <span class="info-value">${payment.id}</span>
+          <span class="info-label">N° de reçu :</span>
+          <span>${payment.id}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Nom de l'élève:</span>
-          <span class="info-value">${payment.studentName}</span>
+          <span class="info-label">Année scolaire :</span>
+          <span>${payment.academicYear}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Mois payé:</span>
-          <span class="info-value">${payment.month}</span>
+          <span class="info-label">Élève :</span>
+          <span>${payment.studentName}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Mode de paiement:</span>
-          <span class="info-value">${getPaymentMethodLabel(payment.paymentMethod)}</span>
+          <span class="info-label">Mois :</span>
+          <span>${payment.month}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Date de paiement:</span>
-          <span class="info-value">${new Date(payment.date).toLocaleDateString('fr-FR')}</span>
+          <span class="info-label">Mode :</span>
+          <span>${getPaymentMethodLabel(payment.paymentMethod)}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Montant payé:</span>
-          <span class="info-value amount">${payment.amount.toLocaleString()} CFA</span>
+          <span class="info-label">Date :</span>
+          <span>${new Date(payment.date).toLocaleDateString('fr-FR')}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Montant :</span>
+          <span class="amount">${payment.amount.toLocaleString()} CFA</span>
         </div>
       </div>
 
       <div class="signature">
         <div>Signature du caissier</div>
         <div class="signature-line"></div>
-        <div>Date: ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div>Date : ${new Date().toLocaleDateString('fr-FR')}</div>
       </div>
 
       <div class="footer">
-        <p>Merci pour votre paiement. Conservez ce reçu pour vos dossiers.</p>
-        <p>En cas de problème, contactez l'administration de l'école.</p>
+        Merci de conserver ce reçu. Pour toute réclamation, contactez l'administration.
       </div>
     </body>
     </html>
@@ -169,6 +188,6 @@ const getPaymentMethodLabel = (method: string): string => {
     case 'transfer': return 'Virement bancaire';
     case 'check': return 'Chèque';
     case 'mobile': return 'Mobile Money';
-    default: return 'Espèces';
+    default: return method;
   }
 };
