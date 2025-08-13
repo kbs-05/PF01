@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { addStudent } from '@/lib/database';
+import { addStudent, getStudentsByClass } from '@/lib/database'; // On suppose que tu as une fonction pour récupérer les élèves par classe
 
 export default function AjouterEleve() {
   const [formData, setFormData] = useState({
@@ -19,20 +19,50 @@ export default function AjouterEleve() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Fonction pour générer le matricule dans l'ordre par classe
+  const generateMatricule = async (classe: string) => {
+    // Récupérer tous les élèves de cette classe
+    const studentsInClass = await getStudentsByClass(classe);
+
+    // Trouver le matricule le plus élevé
+    let maxNumber = 0;
+    studentsInClass.forEach((student: any) => {
+      if (student.matricule) {
+        const parts = student.matricule.split('-');
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    });
+
+    // Nouveau numéro
+    const newNumber = maxNumber + 1;
+
+    // Formater sur 3 chiffres
+    const formattedNumber = String(newNumber).padStart(3, '0');
+
+    return `${classe}-${formattedNumber}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Transformation des données du formulaire en objet compatible avec addStudent
+      // Générer matricule
+      const newMatricule = await generateMatricule(formData.classe);
+
       const studentToAdd = {
-        name: formData.nom + ' ' + formData.prenom, // fusion nom + prénom dans "name"
+        name: formData.nom + ' ' + formData.prenom,
         class: formData.classe,
-        parentName: '',  // Pas de champs parent dans le formulaire, donc vide ici
-        parentPhone: '', // Idem
+        matricule: newMatricule,
+        parentName: '',
+        parentPhone: '',
       };
 
       await addStudent(studentToAdd);
+
       setSuccess(true);
       setFormData({ nom: '', prenom: '', classe: '', matricule: '' });
     } catch (error) {
@@ -68,12 +98,10 @@ export default function AjouterEleve() {
         <input
           type="text"
           name="matricule"
-          placeholder="Matricule"
+          placeholder="Matricule (généré automatiquement)"
           value={formData.matricule}
-          onChange={handleChange}
-          className="w-full p-2 border rounded"
-          required
-          disabled // Matricule n'est pas utilisé dans l'ajout, donc on peut désactiver ou enlever ce champ
+          className="w-full p-2 border rounded bg-gray-100"
+          disabled
         />
         <select
           name="classe"

@@ -6,6 +6,7 @@ import { generateReceipt, downloadReceipt } from '../lib/receipt';
 
 type Payment = {
   id: string;
+  matricule: string;
   studentName: string;
   month: string;
   amount: number;
@@ -18,12 +19,13 @@ export default function PaymentForm() {
   const [formData, setFormData] = useState({
     class: '',
     studentName: '',
+    matricule: '',
     month: [] as string[],
     amount: '',
     academicYear: ''
   });
 
-  const [students, setStudents] = useState<{ id: string; name: string; class: string }[]>([]);
+  const [students, setStudents] = useState<{ id: string; name: string; class: string; matricule: string }[]>([]);
   const [studentInputType, setStudentInputType] = useState<'list' | 'manual'>('list');
   const [showSuccess, setShowSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -51,9 +53,9 @@ export default function PaymentForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { class: selectedClass, studentName, month, amount, academicYear } = formData;
+    const { class: selectedClass, studentName, matricule, month, amount, academicYear } = formData;
 
-    if (!selectedClass || !studentName || month.length === 0 || !amount || !academicYear) {
+    if (!selectedClass || !studentName || !matricule || month.length === 0 || !amount || !academicYear) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -63,6 +65,7 @@ export default function PaymentForm() {
       const payment: Payment = {
         id: Date.now().toString(),
         studentName,
+        matricule,
         month: month.join(', '),
         amount: parseFloat(amount),
         paymentMethod: 'cash',
@@ -83,7 +86,7 @@ export default function PaymentForm() {
   };
 
   const handleNewPayment = () => {
-    setFormData({ class: '', studentName: '', month: [], amount: '', academicYear: '' });
+    setFormData({ class: '', studentName: '', matricule: '', month: [], amount: '', academicYear: '' });
     setStudentInputType('list');
     setShowSuccess(false);
     setPaymentCompleted(false);
@@ -97,7 +100,15 @@ export default function PaymentForm() {
       setFormData(prev => ({
         ...prev,
         class: value,
-        studentName: ''
+        studentName: '',
+        matricule: ''
+      }));
+    } else if (name === 'studentName' && studentInputType === 'list') {
+      const selectedStudent = students.find(s => s.name === value && s.class === formData.class);
+      setFormData(prev => ({
+        ...prev,
+        studentName: value,
+        matricule: selectedStudent ? selectedStudent.matricule : ''
       }));
     } else if (name !== 'month') {
       setFormData(prev => ({
@@ -119,7 +130,8 @@ export default function PaymentForm() {
     setStudentInputType(type);
     setFormData(prev => ({
       ...prev,
-      studentName: ''
+      studentName: '',
+      matricule: ''
     }));
   };
 
@@ -220,7 +232,7 @@ export default function PaymentForm() {
                   name="studentName"
                   value={formData.studentName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-2"
                   required
                   disabled={!formData.class || paymentCompleted}
                 >
@@ -239,11 +251,24 @@ export default function PaymentForm() {
                   value={formData.studentName}
                   onChange={handleInputChange}
                   placeholder="Nom de l'élève"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-2"
                   required
                   disabled={paymentCompleted}
                 />
               )}
+
+              <label htmlFor="matricule" className="block text-sm font-medium text-gray-700 mb-2">Matricule *</label>
+              <input
+                type="text"
+                id="matricule"
+                name="matricule"
+                value={formData.matricule}
+                onChange={handleInputChange}
+                placeholder="Matricule de l'élève"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                required
+                disabled={paymentCompleted || studentInputType === 'list'}
+              />
             </div>
 
             <div>
@@ -305,6 +330,10 @@ export default function PaymentForm() {
                 <span className="text-blue-900">{formData.studentName || 'Non sélectionné'}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-blue-700">Matricule:</span>
+                <span className="text-blue-900">{formData.matricule || 'Non défini'}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-blue-700">Mois:</span>
                 <span className="text-blue-900">{formData.month.length > 0 ? formData.month.join(', ') : 'Non sélectionné'}</span>
               </div>
@@ -329,7 +358,7 @@ export default function PaymentForm() {
                 )}
               </button>
 
-              <button type="button" onClick={() => setFormData({ class: '', studentName: '', month: [], amount: '', academicYear: '' })} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+              <button type="button" onClick={() => setFormData({ class: '', studentName: '', matricule: '', month: [], amount: '', academicYear: '' })} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
                 Annuler
               </button>
             </div>

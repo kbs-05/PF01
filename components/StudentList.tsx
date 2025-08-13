@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getStudents, getPayments } from '../lib/firebase'; // adapte le chemin si besoin
+import { getStudents, getPayments } from '../lib/database'; // adapte le chemin si besoin
 
 interface Student {
   id: string;
+  matricule: string;
   name: string;
   class: string;
 }
@@ -53,14 +54,15 @@ export default function StudentList() {
   }, []);
 
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) 
+                          || student.matricule.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = selectedClass === '' || student.class === selectedClass;
     return matchesSearch && matchesClass;
   });
 
   const classes = Array.from(new Set(students.map(s => s.class)));
 
-  // ✅ Correction ici : prise en charge des paiements multiples (séparés par virgule)
+  // ✅ Vérifie si un étudiant a payé un mois donné
   const hasPayment = (studentName: string, month: string) => {
     return payments.some(payment =>
       payment.studentName === studentName &&
@@ -70,8 +72,9 @@ export default function StudentList() {
 
   const exportToCSV = () => {
     const csvData = [
-      ['Nom', 'Classe', ...months],
+      ['Matricule', 'Nom', 'Classe', ...months],
       ...filteredStudents.map(student => [
+        student.matricule,
         student.name,
         student.class,
         ...months.map(month => hasPayment(student.name, month) ? 'Payé' : 'Non payé')
@@ -105,7 +108,7 @@ export default function StudentList() {
         <div className="flex-1 relative">
           <input
             type="text"
-            placeholder="Rechercher un élève..."
+            placeholder="Rechercher un élève ou matricule..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -134,6 +137,9 @@ export default function StudentList() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Matricule
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Élève
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -152,13 +158,14 @@ export default function StudentList() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={2 + months.length} className="text-center py-8 text-gray-500">
+                  <td colSpan={3 + months.length} className="text-center py-8 text-gray-500">
                     Aucun élève trouvé
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((student, index) => (
                   <tr key={student.id || index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.matricule}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
@@ -166,7 +173,6 @@ export default function StudentList() {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                          <div className="text-sm text-gray-500">{student.id}</div>
                         </div>
                       </div>
                     </td>
