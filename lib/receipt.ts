@@ -54,8 +54,8 @@ const getReceiptHTML = (payment: Payment): string => {
       .receipt-info { background-color: #f9f9f9; padding: 12px; border-radius: 6px; }
       .info-row { display: flex; justify-content: space-between; margin: 6px 0; border-bottom: 1px dashed #ccc; padding-bottom: 3px; }
       .info-label { font-weight: bold; }
-      .amount { font-weight: bold; font-size: 14px; color: #28a745; display: block; }
-      .remainder { font-weight: bold; font-size: 13px; color: #dc3545; margin-top: 2px; }
+      .amount { font-weight: bold; font-size: 14px; color: #28a745; }
+      .remainder { font-weight: bold; font-size: 13px; color: #dc3545; margin-top: 2px; display: block; }
       .signature { text-align: right; margin-top: 20px; }
       .signature-line { border-top: 1px solid #333; width: 130px; margin-top: 15px; margin-bottom: 5px; float: right; }
       .footer { text-align: center; font-size: 10px; margin-top: 20px; color: #666; }
@@ -80,14 +80,11 @@ const getReceiptHTML = (payment: Payment): string => {
       <div class="info-row"><span class="info-label">Mode :</span><span>${getPaymentMethodLabel(payment.paymentMethod)}</span></div>
       <div class="info-row"><span class="info-label">Date :</span><span>${new Date(payment.date).toLocaleDateString('fr-FR')}</span></div>
 
-      <!-- Montant payé et reste -->
-      <div class="info-row">
-        <span class="info-label">Montant payé :</span>
-        <span>
-          <span class="amount">${payment.amount.toLocaleString()} CFA</span>
-          ${payment.remainder ? `<span class="remainder">Reste à payer (${payment.remainder.month}) : ${payment.remainder.amount.toLocaleString()} CFA</span>` : ''}
-        </span>
-      </div>
+      <!-- Montant payé -->
+      <div class="info-row"><span class="info-label">Montant payé :</span><span class="amount">${payment.amount.toLocaleString()} CFA</span></div>
+
+      <!-- Reste à payer sur une ligne séparée -->
+      ${payment.remainder ? `<div class="info-row"><span class="info-label">Reste à payer (${payment.remainder.month}) :</span><span class="remainder">${payment.remainder.amount.toLocaleString()} CFA</span></div>` : ''}
     </div>
 
     <div class="signature">
@@ -101,6 +98,7 @@ const getReceiptHTML = (payment: Payment): string => {
   </html>
   `;
 };
+
 
 
 
