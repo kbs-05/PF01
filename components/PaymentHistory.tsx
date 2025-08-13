@@ -5,12 +5,18 @@ import { getPayments } from '@/lib/database'; // adapte le chemin si besoin
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
+type Remainder = {
+  month: string;
+  amount: number;
+};
+
 type Payment = {
   id: string;
   studentName: string;
   studentMatricule: string;
-  month: string;
-  amount: number;
+  monthsPaid: string[]; // mois payés
+  remainder?: Remainder; // reste éventuel
+  amount: number; // montant payé
   paymentMethod: string;
   date: string | Timestamp;
 };
@@ -20,6 +26,12 @@ export default function PaymentHistory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'student'>('date');
+
+  const months = [
+    'INSCRIPTION', 'REINSCRIPTION', 'FOURNITURE', 'TENUE', 'POLO', 'POLO DE SPORT',
+    'Septembre', 'Octobre', 'Novembre', 'Décembre',
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
+  ];
 
   useEffect(() => {
     const fetchPayments = async () => {
@@ -33,35 +45,31 @@ export default function PaymentHistory() {
     fetchPayments();
   }, []);
 
+  const paymentDateToJsDate = (date: string | Timestamp): Date => {
+    if (!date) return new Date(0);
+    if (date instanceof Timestamp) return date.toDate();
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  };
+
   const filteredPayments = payments
     .filter(payment =>
       payment.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.studentMatricule.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    .filter(payment => (selectedMonth ? payment.month === selectedMonth : true))
+    .filter(payment => {
+      if (!selectedMonth) return true;
+      return payment.monthsPaid.includes(selectedMonth) || payment.remainder?.month === selectedMonth;
+    })
     .sort((a, b) => {
       if (sortBy === 'amount') return b.amount - a.amount;
       if (sortBy === 'student') return a.studentName.localeCompare(b.studentName);
-      // Par date
       const dateA = paymentDateToJsDate(a.date);
       const dateB = paymentDateToJsDate(b.date);
       return dateB.getTime() - dateA.getTime();
     });
 
   const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
-
-  const months = [
-    'INSCRIPTION', 'FOURNITURE', 'TENUE', 'POLO', 'POLO DE SPORT',
-    'Septembre', 'Octobre', 'Novembre', 'Décembre',
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
-  ];
-
-  function paymentDateToJsDate(date: string | Timestamp): Date {
-    if (!date) return new Date(0); // valeur par défaut
-    if (date instanceof Timestamp) return date.toDate();
-    const d = new Date(date);
-    return isNaN(d.getTime()) ? new Date(0) : d;
-  }
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
@@ -120,11 +128,15 @@ export default function PaymentHistory() {
             )}
             {filteredPayments.map(payment => {
               const date = paymentDateToJsDate(payment.date);
+              const monthsDisplay = payment.remainder
+                ? `${payment.monthsPaid.join(', ')} (reste ${payment.remainder.amount} pour ${payment.remainder.month})`
+                : payment.monthsPaid.join(', ');
+
               return (
                 <tr key={payment.id} className="hover:bg-gray-50">
                   <td className="p-3 border">{payment.studentName}</td>
                   <td className="p-3 border">{payment.studentMatricule}</td>
-                  <td className="p-3 border">{payment.month}</td>
+                  <td className="p-3 border">{monthsDisplay}</td>
                   <td className="p-3 border">{payment.amount.toLocaleString()} FCFA</td>
                   <td className="p-3 border">{payment.paymentMethod}</td>
                   <td className="p-3 border">{date.getTime() > 0 ? format(date, 'dd/MM/yyyy') : 'Date invalide'}</td>

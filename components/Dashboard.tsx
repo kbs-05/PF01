@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getStudents, getPayments } from '../lib/firebase';
+import { getStudents, getPayments } from '../lib/database';
+import { format } from 'date-fns';
 
 type Student = {
   id: string;
@@ -10,8 +11,8 @@ type Student = {
 
 type Payment = {
   studentName: string;
-  studentMatricule?: string;
-  month: string;
+  monthsPaid: string[];
+  remainder?: { month: string; amount: number };
   amount: number;
   date: string;
 };
@@ -22,57 +23,77 @@ export default function Dashboard() {
     paidThisMonth: 0,
     totalAmount: 0,
     pendingPayments: 0,
+    inscriptions: 0,
+    reinscriptions: 0,
   });
 
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+
+  const months = [
+    'INSCRIPTION', 'REINSCRIPTION', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
+  ];
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const students: Student[] = await getStudents();
-        const payments: Payment[] = await getPayments();
+        const studentsData: Student[] = await getStudents();
+        const paymentsData: Payment[] = await getPayments();
 
+        setStudents(studentsData);
+        setPayments(paymentsData);
+
+        // ---------- Mois courant ----------
         const now = new Date();
-        const currentMonth = now.getMonth() + 1;
-        const currentYear = now.getFullYear();
+        const monthNames = [
+          'Septembre','Octobre','Novembre','Décembre',
+          'Janvier','Février','Mars','Avril','Mai'
+        ];
+        const currentMonthIndex = now.getMonth() - 8; // 8 = Septembre
+        const currentMonthName = monthNames[currentMonthIndex >= 0 ? currentMonthIndex : 0];
 
-        // Paiements du mois en cours
-        const thisMonthPayments = payments.filter((p) => {
-          const paymentDate = new Date(p.date);
-          return (
-            paymentDate.getMonth() + 1 === currentMonth &&
-            paymentDate.getFullYear() === currentYear
-          );
-        });
-
-        const uniqueStudentsPaidThisMonth = new Set(
-          thisMonthPayments.map(p => p.studentName)
+        // ---------- Élèves ayant payé ce mois ----------
+        const studentsPaidThisMonth = new Set(
+          paymentsData
+            .filter(p => p.monthsPaid.includes(currentMonthName))
+            .map(p => p.studentName)
         );
 
-        const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+        // ---------- Montant total payé ----------
+        const totalAmount = paymentsData.reduce((sum, p) => sum + p.amount, 0);
+
+        // ---------- Inscriptions / Réinscriptions ----------
+        const inscriptions = paymentsData.filter(p => p.monthsPaid.includes('INSCRIPTION')).length;
+        const reinscriptions = paymentsData.filter(p => p.monthsPaid.includes('REINSCRIPTION')).length;
+
+        // ---------- Paiements récents de la semaine ----------
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const recent = paymentsData
+          .filter(p => {
+            const d = new Date(p.date);
+            return d >= weekStart && d <= weekEnd;
+          })
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         setStats({
-          totalStudents: students.length,
-          paidThisMonth: uniqueStudentsPaidThisMonth.size,
-          totalAmount: totalAmount,
-          pendingPayments: students.length - uniqueStudentsPaidThisMonth.size,
+          totalStudents: studentsData.length,
+          paidThisMonth: studentsPaidThisMonth.size,
+          totalAmount,
+          pendingPayments: studentsData.length - studentsPaidThisMonth.size,
+          inscriptions,
+          reinscriptions,
         });
 
-        // Paiements de la semaine en cours
-        const weekPayments = payments.filter(p => {
-          const paymentDate = new Date(p.date);
-          const firstDayOfWeek = new Date();
-          firstDayOfWeek.setDate(now.getDate() - now.getDay()); // dimanche
-          firstDayOfWeek.setHours(0, 0, 0, 0);
-
-          const lastDayOfWeek = new Date(firstDayOfWeek);
-          lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6); // samedi
-          lastDayOfWeek.setHours(23, 59, 59, 999);
-
-          return paymentDate >= firstDayOfWeek && paymentDate <= lastDayOfWeek;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        setRecentPayments(weekPayments);
+        setRecentPayments(recent);
       } catch (error) {
         console.error('Erreur chargement données tableau de bord:', error);
       }
@@ -81,15 +102,19 @@ export default function Dashboard() {
     loadDashboardData();
   }, []);
 
-  const months = [
-    'Septembre','Octobre', 'Novembre','Décembre','Janvier', 'Février', 'Mars', 'Avril', 'Mai', 
-  ];
+  // ---------- Fonction pour savoir si un élève a payé un mois ----------
+  const hasPaidMonth = (studentName: string, month: string) => {
+    return payments.some(
+      p => p.studentName === studentName && p.monthsPaid.includes(month)
+    );
+  };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-bold mb-6">Tableau de Bord</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Statistiques principales */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
         <div className="bg-white shadow rounded-lg p-4">
           <h2 className="text-lg font-semibold">Total Élèves</h2>
           <p className="text-3xl font-bold text-blue-600">{stats.totalStudents}</p>
@@ -106,15 +131,24 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold">Paiements en attente</h2>
           <p className="text-3xl font-bold text-red-600">{stats.pendingPayments}</p>
         </div>
+        <div className="bg-white shadow rounded-lg p-4">
+          <h2 className="text-lg font-semibold">Inscriptions</h2>
+          <p className="text-3xl font-bold text-purple-600">{stats.inscriptions}</p>
+        </div>
+        <div className="bg-white shadow rounded-lg p-4">
+          <h2 className="text-lg font-semibold">Réinscriptions</h2>
+          <p className="text-3xl font-bold text-yellow-600">{stats.reinscriptions}</p>
+        </div>
       </div>
 
+      {/* Graphique mensuel */}
       <div className="bg-white shadow rounded-lg p-6 mb-8">
         <h2 className="text-xl font-bold mb-4">Répartition mensuelle des paiements</h2>
         <div className="space-y-4">
           {months.map((month, index) => {
             const studentNames = new Set(
-              recentPayments
-                .filter(p => p.month === month)
+              payments
+                .filter(p => p.monthsPaid.includes(month))
                 .map(p => p.studentName)
             );
             const percentage =
@@ -140,20 +174,21 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Derniers paiements */}
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-xl font-bold mb-4">Derniers paiements (cette semaine)</h2>
         <ul className="divide-y divide-gray-200">
-          {recentPayments.map((payment, index) => (
-            <li key={index} className="py-2 flex justify-between text-sm">
-              <span>{payment.studentName}</span>
-              <span>{payment.month}</span>
-              <span>{payment.amount} FCFA</span>
-              <span>{new Date(payment.date).toLocaleDateString()}</span>
-            </li>
-          ))}
           {recentPayments.length === 0 && (
             <li className="py-2 text-center text-gray-500">Aucun paiement cette semaine</li>
           )}
+          {recentPayments.map((p, index) => (
+            <li key={index} className="py-2 flex justify-between text-sm">
+              <span>{p.studentName}</span>
+              <span>{p.monthsPaid.join(', ')}</span>
+              <span>{p.amount} FCFA</span>
+              <span>{format(new Date(p.date), 'dd/MM/yyyy')}</span>
+            </li>
+          ))}
         </ul>
       </div>
     </div>

@@ -8,7 +8,8 @@ type Payment = {
   id: string;
   studentName: string;
   studentMatricule: string;
-  month: string;
+  monthsPaid: string[];
+  remainder?: { month: string; amount: number };
   amount: number;
   paymentMethod: string;
   date: string;
@@ -27,7 +28,9 @@ export default function PaymentForm() {
     class: '',
     studentName: '',
     studentMatricule: '',
-    month: [] as string[],
+    monthsPaid: [] as string[],
+    remainderMonth: '',
+    remainderAmount: '',
     amount: '',
     academicYear: ''
   });
@@ -40,9 +43,8 @@ export default function PaymentForm() {
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   const months = [
-    'INSCRIPTION', 'FOURNITURE', 'TENUE', 'POLO', 'POLO DE SPORT',
-    'Septembre', 'Octobre', 'Novembre', 'Décembre',
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
+    'INSCRIPTION', 'REINSCRIPTION', 'FOURNITURE', 'TENUE', 'POLO', 'POLO DE SPORT',
+    'Septembre', 'Octobre', 'Novembre','Décembre','Janvier', 'Février', 'Mars', 'Avril', 'Mai'
   ];
 
   const classes = ['2ANS', '3ANS', '4ANS', '5ANS', '1ère', '2ème', '3ème', '4ème', '5ème'];
@@ -76,14 +78,14 @@ export default function PaymentForm() {
         studentName: value,
         studentMatricule: selectedStudent ? selectedStudent.matricule : ''
       }));
-    } else if (name !== 'month') {
+    } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleMonthsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = Array.from(e.target.selectedOptions).map(option => option.value);
-    setFormData(prev => ({ ...prev, month: selected }));
+    setFormData(prev => ({ ...prev, monthsPaid: selected }));
   };
 
   const handleStudentInputTypeChange = (type: 'list' | 'manual') => {
@@ -94,9 +96,9 @@ export default function PaymentForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { class: selectedClass, studentName, studentMatricule, month, amount, academicYear } = formData;
+    const { class: selectedClass, studentName, studentMatricule, monthsPaid, remainderMonth, remainderAmount, amount, academicYear } = formData;
 
-    if (!selectedClass || !studentName || !studentMatricule || month.length === 0 || !amount || !academicYear) {
+    if (!selectedClass || !studentName || !studentMatricule || monthsPaid.length === 0 || !amount || !academicYear) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -106,15 +108,16 @@ export default function PaymentForm() {
       const payment: Omit<Payment, 'id'> = {
         studentName,
         studentMatricule,
-        month: month.join(', '),
+        monthsPaid,
+        remainder: remainderAmount && remainderMonth ? { month: remainderMonth, amount: parseFloat(remainderAmount) } : undefined,
         amount: parseFloat(amount),
         paymentMethod: 'cash',
         date: new Date().toISOString(),
         academicYear
       };
 
-      await addPayment(payment);
-      setLastPayment({ id: Date.now().toString(), ...payment });
+      const savedPayment = await addPayment(payment);
+      setLastPayment(savedPayment);
       setShowSuccess(true);
       setPaymentCompleted(true);
     } catch (error) {
@@ -126,22 +129,19 @@ export default function PaymentForm() {
   };
 
   const handleNewPayment = () => {
-    setFormData({ class: '', studentName: '', studentMatricule: '', month: [], amount: '', academicYear: '' });
+    setFormData({ class: '', studentName: '', studentMatricule: '', monthsPaid: [], remainderMonth: '', remainderAmount: '', amount: '', academicYear: '' });
     setStudentInputType('list');
     setShowSuccess(false);
     setPaymentCompleted(false);
     setLastPayment(null);
   };
 
-  const handlePrintReceipt = () => lastPayment && generateReceipt(lastPayment);
-  const handleDownloadReceipt = () => lastPayment && downloadReceipt(lastPayment);
-
   return (
     <div className="p-6">
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Nouveau paiement</h2>
 
-        {showSuccess && (
+        {showSuccess && lastPayment && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -149,10 +149,10 @@ export default function PaymentForm() {
                 <span className="text-green-800">Paiement enregistré avec succès !</span>
               </div>
               <div className="flex space-x-2">
-                <button onClick={handlePrintReceipt} className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                <button onClick={() => generateReceipt(lastPayment)} className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
                   <i className="ri-printer-line mr-1"></i> Imprimer
                 </button>
-                <button onClick={handleDownloadReceipt} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                <button onClick={() => downloadReceipt(lastPayment)} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
                   <i className="ri-download-line mr-1"></i> Télécharger
                 </button>
                 <button onClick={handleNewPayment} className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">
@@ -202,21 +202,31 @@ export default function PaymentForm() {
               )}
             </div>
 
-            {/* Mois */}
+            {/* Mois payés */}
             <div>
-              <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-2">Mois de paiement *</label>
-              <select id="month" name="month" multiple value={formData.month} onChange={handleMonthChange} className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted}>
+              <label htmlFor="monthsPaid" className="block text-sm font-medium text-gray-700 mb-2">Mois payés *</label>
+              <select id="monthsPaid" name="monthsPaid" multiple value={formData.monthsPaid} onChange={handleMonthsChange} className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted}>
                 {months.map((month, idx) => <option key={idx} value={month}>{month}</option>)}
               </select>
             </div>
 
-            {/* Montant */}
+            {/* Montant total payé */}
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">Montant (CFA) *</label>
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">Montant payé (CFA) *</label>
               <div className="relative">
                 <input type="number" id="amount" name="amount" value={formData.amount} onChange={handleInputChange} placeholder="15000" className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
                 <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">CFA</span>
               </div>
+            </div>
+
+            {/* Reste */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reste à payer (si partiel)</label>
+              <input type="number" name="remainderAmount" value={formData.remainderAmount} onChange={handleInputChange} placeholder="Montant restant" className="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled={paymentCompleted} />
+              <select name="remainderMonth" value={formData.remainderMonth} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-2" disabled={paymentCompleted}>
+                <option value="">Choisir le mois du reste</option>
+                {months.map((month, idx) => <option key={idx} value={month}>{month}</option>)}
+              </select>
             </div>
           </div>
 

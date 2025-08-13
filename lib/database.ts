@@ -8,7 +8,6 @@ import {
   doc,
   query,
   where,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -16,7 +15,7 @@ import { db } from './firebase';
 // ---------------- Types ----------------
 export interface Student {
   id: string;
-  matricule: string; // ✅ Nouveau champ
+  matricule: string;
   name: string;
   class: string;
   parentName: string;
@@ -26,30 +25,32 @@ export interface Student {
 export interface Payment {
   id: string;
   studentName: string;
-  studentMatricule: string; // ✅ Nouveau champ ajouté
-  month: string;
+  studentMatricule: string;
+  monthsPaid: string[];                        // ✅ Mois payés
+  remainder?: { month: string; amount: number }; // ✅ Reste éventuel
   amount: number;
   paymentMethod: string;
   date: string;
+  academicYear: string;
 }
 
 // ---------------- Étudiants ----------------
 
-// ✅ Récupérer tous les étudiants
+// Récupérer tous les étudiants
 export const getStudents = async (): Promise<Student[]> => {
   const studentsCol = collection(db, 'students');
   const snapshot = await getDocs(studentsCol);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[];
 };
 
-// ✅ Récupérer les étudiants par classe
+// Récupérer les étudiants par classe
 export const getStudentsByClass = async (className: string): Promise<Student[]> => {
   const q = query(collection(db, 'students'), where('class', '==', className));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Student[];
 };
 
-// ✅ Ajouter un étudiant
+// Ajouter un étudiant
 export const addStudent = async (student: Omit<Student, 'id'>): Promise<Student> => {
   const docRef = await addDoc(collection(db, 'students'), {
     ...student,
@@ -58,13 +59,13 @@ export const addStudent = async (student: Omit<Student, 'id'>): Promise<Student>
   return { id: docRef.id, ...student };
 };
 
-// ✅ Mettre à jour un étudiant
+// Mettre à jour un étudiant
 export const updateStudent = async (id: string, updates: Partial<Student>): Promise<void> => {
   const docRef = doc(db, 'students', id);
   await updateDoc(docRef, updates);
 };
 
-// ✅ Supprimer un étudiant
+// Supprimer un étudiant
 export const deleteStudent = async (id: string): Promise<void> => {
   const docRef = doc(db, 'students', id);
   await deleteDoc(docRef);
@@ -72,14 +73,14 @@ export const deleteStudent = async (id: string): Promise<void> => {
 
 // ---------------- Paiements ----------------
 
-// ✅ Récupérer tous les paiements
+// Récupérer tous les paiements
 export const getPayments = async (): Promise<Payment[]> => {
   const paymentsCol = collection(db, 'payments');
   const snapshot = await getDocs(paymentsCol);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
 };
 
-// ✅ Ajouter un paiement
+// Ajouter un paiement
 export const addPayment = async (payment: Omit<Payment, 'id'>): Promise<Payment> => {
   const docRef = await addDoc(collection(db, 'payments'), {
     ...payment,
@@ -88,7 +89,7 @@ export const addPayment = async (payment: Omit<Payment, 'id'>): Promise<Payment>
   return { id: docRef.id, ...payment };
 };
 
-// ✅ Supprimer un paiement
+// Supprimer un paiement
 export const deletePayment = async (id: string): Promise<void> => {
   const docRef = doc(db, 'payments', id);
   await deleteDoc(docRef);
