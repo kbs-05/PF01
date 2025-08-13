@@ -6,8 +6,8 @@ import { generateReceipt, downloadReceipt } from '../lib/receipt';
 
 type Payment = {
   id: string;
-  matricule: string;
   studentName: string;
+  studentMatricule: string;
   month: string;
   amount: number;
   paymentMethod: string;
@@ -15,17 +15,24 @@ type Payment = {
   academicYear: string;
 };
 
+type Student = {
+  id: string;
+  name: string;
+  matricule: string;
+  class: string;
+};
+
 export default function PaymentForm() {
   const [formData, setFormData] = useState({
     class: '',
     studentName: '',
-    matricule: '',
+    studentMatricule: '',
     month: [] as string[],
     amount: '',
     academicYear: ''
   });
 
-  const [students, setStudents] = useState<{ id: string; name: string; class: string; matricule: string }[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [studentInputType, setStudentInputType] = useState<'list' | 'manual'>('list');
   const [showSuccess, setShowSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,6 +44,7 @@ export default function PaymentForm() {
     'Septembre', 'Octobre', 'Novembre', 'Décembre',
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
   ];
+
   const classes = ['2ANS', '3ANS', '4ANS', '5ANS', 'CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2'];
 
   useEffect(() => {
@@ -51,21 +59,53 @@ export default function PaymentForm() {
     ? students.filter(student => student.class === formData.class)
     : [];
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+
+    if (name === 'class') {
+      setFormData(prev => ({
+        ...prev,
+        class: value,
+        studentName: '',
+        studentMatricule: ''
+      }));
+    } else if (name === 'studentName') {
+      const selectedStudent = students.find(s => s.name === value);
+      setFormData(prev => ({
+        ...prev,
+        studentName: value,
+        studentMatricule: selectedStudent ? selectedStudent.matricule : ''
+      }));
+    } else if (name !== 'month') {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = Array.from(e.target.selectedOptions).map(option => option.value);
+    setFormData(prev => ({ ...prev, month: selected }));
+  };
+
+  const handleStudentInputTypeChange = (type: 'list' | 'manual') => {
+    setStudentInputType(type);
+    setFormData(prev => ({ ...prev, studentName: '', studentMatricule: '' }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { class: selectedClass, studentName, matricule, month, amount, academicYear } = formData;
 
-    if (!selectedClass || !studentName || !matricule || month.length === 0 || !amount || !academicYear) {
+    const { class: selectedClass, studentName, studentMatricule, month, amount, academicYear } = formData;
+
+    if (!selectedClass || !studentName || !studentMatricule || month.length === 0 || !amount || !academicYear) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
     setIsProcessing(true);
     try {
-      const payment: Payment = {
-        id: Date.now().toString(),
+      const payment: Omit<Payment, 'id'> = {
         studentName,
-        matricule,
+        studentMatricule,
         month: month.join(', '),
         amount: parseFloat(amount),
         paymentMethod: 'cash',
@@ -74,7 +114,7 @@ export default function PaymentForm() {
       };
 
       await addPayment(payment);
-      setLastPayment(payment);
+      setLastPayment({ id: Date.now().toString(), ...payment });
       setShowSuccess(true);
       setPaymentCompleted(true);
     } catch (error) {
@@ -86,66 +126,15 @@ export default function PaymentForm() {
   };
 
   const handleNewPayment = () => {
-    setFormData({ class: '', studentName: '', matricule: '', month: [], amount: '', academicYear: '' });
+    setFormData({ class: '', studentName: '', studentMatricule: '', month: [], amount: '', academicYear: '' });
     setStudentInputType('list');
     setShowSuccess(false);
     setPaymentCompleted(false);
     setLastPayment(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-
-    if (name === 'class') {
-      setFormData(prev => ({
-        ...prev,
-        class: value,
-        studentName: '',
-        matricule: ''
-      }));
-    } else if (name === 'studentName' && studentInputType === 'list') {
-      const selectedStudent = students.find(s => s.name === value && s.class === formData.class);
-      setFormData(prev => ({
-        ...prev,
-        studentName: value,
-        matricule: selectedStudent ? selectedStudent.matricule : ''
-      }));
-    } else if (name !== 'month') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
-
-  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = Array.from(e.target.selectedOptions).map(option => option.value);
-    setFormData(prev => ({
-      ...prev,
-      month: selected
-    }));
-  };
-
-  const handleStudentInputTypeChange = (type: 'list' | 'manual') => {
-    setStudentInputType(type);
-    setFormData(prev => ({
-      ...prev,
-      studentName: '',
-      matricule: ''
-    }));
-  };
-
-  const handlePrintReceipt = () => {
-    if (lastPayment) {
-      generateReceipt(lastPayment);
-    }
-  };
-
-  const handleDownloadReceipt = () => {
-    if (lastPayment) {
-      downloadReceipt(lastPayment);
-    }
-  };
+  const handlePrintReceipt = () => lastPayment && generateReceipt(lastPayment);
+  const handleDownloadReceipt = () => lastPayment && downloadReceipt(lastPayment);
 
   return (
     <div className="p-6">
@@ -176,190 +165,66 @@ export default function PaymentForm() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Classe */}
             <div>
-              <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-2">
-                Classe *
-              </label>
-              <select
-                id="class"
-                name="class"
-                value={formData.class}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                required
-                disabled={paymentCompleted}
-              >
+              <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-2">Classe *</label>
+              <select id="class" name="class" value={formData.class} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted}>
                 <option value="">Sélectionner une classe</option>
-                {classes.map((className, index) => (
-                  <option key={index} value={className}>{className}</option>
-                ))}
+                {classes.map((className, idx) => <option key={idx} value={className}>{className}</option>)}
               </select>
             </div>
 
+            {/* Année académique */}
             <div>
-              <label htmlFor="academicYear" className="block text-sm font-medium text-gray-700 mb-2">
-                Année académique *
-              </label>
-              <input
-                type="text"
-                id="academicYear"
-                name="academicYear"
-                placeholder="2024-2025"
-                value={formData.academicYear}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                required
-                disabled={paymentCompleted}
-              />
+              <label htmlFor="academicYear" className="block text-sm font-medium text-gray-700 mb-2">Année académique *</label>
+              <input type="text" id="academicYear" name="academicYear" placeholder="2024-2025" value={formData.academicYear} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
             </div>
 
+            {/* Élève */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Nom de l'élève *</label>
               <div className="flex space-x-4 mb-3">
                 <label className="flex items-center">
-                  <input type="radio" name="studentInputType" value="list" checked={studentInputType === 'list'} onChange={() => handleStudentInputTypeChange('list')} className="mr-2" disabled={paymentCompleted} />
-                  Liste
+                  <input type="radio" name="studentInputType" value="list" checked={studentInputType === 'list'} onChange={() => handleStudentInputTypeChange('list')} className="mr-2" disabled={paymentCompleted} /> Liste
                 </label>
                 <label className="flex items-center">
-                  <input type="radio" name="studentInputType" value="manual" checked={studentInputType === 'manual'} onChange={() => handleStudentInputTypeChange('manual')} className="mr-2" disabled={paymentCompleted} />
-                  Manuel
+                  <input type="radio" name="studentInputType" value="manual" checked={studentInputType === 'manual'} onChange={() => handleStudentInputTypeChange('manual')} className="mr-2" disabled={paymentCompleted} /> Manuel
                 </label>
               </div>
 
               {studentInputType === 'list' ? (
-                <select
-                  id="studentName"
-                  name="studentName"
-                  value={formData.studentName}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-2"
-                  required
-                  disabled={!formData.class || paymentCompleted}
-                >
-                  <option value="">
-                    {formData.class ? "Sélectionner un élève" : "Choisir d'abord une classe"}
-                  </option>
-                  {filteredStudents.map((student, index) => (
-                    <option key={index} value={student.name}>{student.name}</option>
-                  ))}
+                <select id="studentName" name="studentName" value={formData.studentName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={!formData.class || paymentCompleted}>
+                  <option value="">{formData.class ? "Sélectionner un élève" : "Choisir d'abord une classe"}</option>
+                  {filteredStudents.map((student) => <option key={student.id} value={student.name}>{student.name} ({student.matricule})</option>)}
                 </select>
               ) : (
-                <input
-                  type="text"
-                  id="studentName"
-                  name="studentName"
-                  value={formData.studentName}
-                  onChange={handleInputChange}
-                  placeholder="Nom de l'élève"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-2"
-                  required
-                  disabled={paymentCompleted}
-                />
+                <input type="text" id="studentName" name="studentName" value={formData.studentName} onChange={handleInputChange} placeholder="Nom de l'élève" className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
               )}
-
-              <label htmlFor="matricule" className="block text-sm font-medium text-gray-700 mb-2">Matricule *</label>
-              <input
-                type="text"
-                id="matricule"
-                name="matricule"
-                value={formData.matricule}
-                onChange={handleInputChange}
-                placeholder="Matricule de l'élève"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                required
-                disabled={paymentCompleted || studentInputType === 'list'}
-              />
             </div>
 
+            {/* Mois */}
             <div>
-              <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-2">
-                Mois de paiement *
-              </label>
-              <select
-                id="month"
-                name="month"
-                multiple
-                value={formData.month}
-                onChange={handleMonthChange}
-                className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg"
-                required
-                disabled={paymentCompleted}
-              >
-                {months.map((month, index) => (
-                  <option key={index} value={month}>{month}</option>
-                ))}
+              <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-2">Mois de paiement *</label>
+              <select id="month" name="month" multiple value={formData.month} onChange={handleMonthChange} className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted}>
+                {months.map((month, idx) => <option key={idx} value={month}>{month}</option>)}
               </select>
             </div>
 
+            {/* Montant */}
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                Montant (CFA) *
-              </label>
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">Montant (CFA) *</label>
               <div className="relative">
-                <input
-                  type="number"
-                  id="amount"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  placeholder="15000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  required
-                  disabled={paymentCompleted}
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
-                  CFA
-                </span>
+                <input type="number" id="amount" name="amount" value={formData.amount} onChange={handleInputChange} placeholder="15000" className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">CFA</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2">Récapitulatif</h3>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-blue-700">Année académique:</span>
-                <span className="text-blue-900">{formData.academicYear || 'Non définie'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Classe:</span>
-                <span className="text-blue-900">{formData.class || 'Non sélectionnée'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Élève:</span>
-                <span className="text-blue-900">{formData.studentName || 'Non sélectionné'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Matricule:</span>
-                <span className="text-blue-900">{formData.matricule || 'Non défini'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Mois:</span>
-                <span className="text-blue-900">{formData.month.length > 0 ? formData.month.join(', ') : 'Non sélectionné'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Montant:</span>
-                <span className="text-blue-900 font-medium">{formData.amount ? `${parseFloat(formData.amount).toLocaleString()} CFA` : '0 CFA'}</span>
-              </div>
-            </div>
-          </div>
-
+          {/* Boutons */}
           {!paymentCompleted && (
             <div className="flex space-x-4">
               <button type="submit" disabled={isProcessing} className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
-                {isProcessing ? (
-                  <>
-                    <i className="ri-loader-4-line animate-spin w-5 h-5 mr-2"></i> Traitement...
-                  </>
-                ) : (
-                  <>
-                    <i className="ri-money-dollar-circle-line w-5 h-5 mr-2"></i> Enregistrer le paiement
-                  </>
-                )}
-              </button>
-
-              <button type="button" onClick={() => setFormData({ class: '', studentName: '', matricule: '', month: [], amount: '', academicYear: '' })} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                Annuler
+                {isProcessing ? <> <i className="ri-loader-4-line animate-spin w-5 h-5 mr-2"></i> Traitement... </> : <> <i className="ri-money-dollar-circle-line w-5 h-5 mr-2"></i> Enregistrer le paiement </>}
               </button>
             </div>
           )}
