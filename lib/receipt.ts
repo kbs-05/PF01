@@ -1,5 +1,6 @@
 export interface Payment {
   id: string;
+  receiptNumber: string; // ⚡ numéro de reçu saisi manuellement
   studentName: string;
   studentMatricule: string;
   monthsPaid: string[];               // mois réellement payés
@@ -27,7 +28,7 @@ export const downloadReceipt = (payment: Payment): void => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `recu_${payment.studentName}_${payment.monthsPaid.join('-')}_${payment.id}.html`;
+  a.download = `recu_${payment.receiptNumber}_${payment.studentName}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -53,7 +54,8 @@ const getReceiptHTML = (payment: Payment): string => {
       .receipt-info { background-color: #f9f9f9; padding: 12px; border-radius: 6px; }
       .info-row { display: flex; justify-content: space-between; margin: 6px 0; border-bottom: 1px dashed #ccc; padding-bottom: 3px; }
       .info-label { font-weight: bold; }
-      .amount { font-weight: bold; font-size: 14px; color: #28a745; }
+      .amount { font-weight: bold; font-size: 14px; color: #28a745; display: block; }
+      .remainder { font-weight: bold; font-size: 13px; color: #dc3545; margin-top: 2px; }
       .signature { text-align: right; margin-top: 20px; }
       .signature-line { border-top: 1px solid #333; width: 130px; margin-top: 15px; margin-bottom: 5px; float: right; }
       .footer { text-align: center; font-size: 10px; margin-top: 20px; color: #666; }
@@ -69,14 +71,23 @@ const getReceiptHTML = (payment: Payment): string => {
     <div class="receipt-title">REÇU DE PAIEMENT</div>
 
     <div class="receipt-info">
-      <div class="info-row"><span class="info-label">N° de reçu :</span><span>${payment.id}</span></div>
+      <div class="info-row"><span class="info-label">N° de reçu :</span><span>${payment.receiptNumber}</span></div>
       <div class="info-row"><span class="info-label">Année scolaire :</span><span>${payment.academicYear}</span></div>
       <div class="info-row"><span class="info-label">Élève :</span><span>${payment.studentName}</span></div>
       <div class="info-row"><span class="info-label">Mois payés :</span><span>${payment.monthsPaid.join(', ')}</span></div>
-      ${payment.remainder ? `<div class="info-row"><span class="info-label">Reste à payer (${payment.remainder.month}) :</span><span class="amount">${payment.remainder.amount.toLocaleString()} CFA</span></div>` : ''}
+
+      <!-- Mode et date au-dessus du montant -->
       <div class="info-row"><span class="info-label">Mode :</span><span>${getPaymentMethodLabel(payment.paymentMethod)}</span></div>
       <div class="info-row"><span class="info-label">Date :</span><span>${new Date(payment.date).toLocaleDateString('fr-FR')}</span></div>
-      <div class="info-row"><span class="info-label">Montant payé :</span><span class="amount">${payment.amount.toLocaleString()} CFA</span></div>
+
+      <!-- Montant payé et reste -->
+      <div class="info-row">
+        <span class="info-label">Montant payé :</span>
+        <span>
+          <span class="amount">${payment.amount.toLocaleString()} CFA</span>
+          ${payment.remainder ? `<span class="remainder">Reste à payer (${payment.remainder.month}) : ${payment.remainder.amount.toLocaleString()} CFA</span>` : ''}
+        </span>
+      </div>
     </div>
 
     <div class="signature">
@@ -90,6 +101,8 @@ const getReceiptHTML = (payment: Payment): string => {
   </html>
   `;
 };
+
+
 
 const getPaymentMethodLabel = (method: string): string => {
   switch (method) {
