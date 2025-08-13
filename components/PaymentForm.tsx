@@ -5,8 +5,8 @@ import { addPayment, getStudents } from '../lib/database';
 import { generateReceipt, downloadReceipt } from '../lib/receipt';
 
 type Payment = {
-  id: string;
-  receiptNumber: string;
+  id: string;                // ID Firestore
+  receiptNumber: string;      // numéro de reçu saisi manuellement
   studentName: string;
   studentMatricule: string;
   monthsPaid: string[];
@@ -26,10 +26,10 @@ type Student = {
 
 export default function PaymentForm() {
   const [formData, setFormData] = useState({
+    receiptNumber: '',
     class: '',
     studentName: '',
     studentMatricule: '',
-    receiptNumber: '',
     monthsPaid: [] as string[],
     remainderMonth: '',
     remainderAmount: '',
@@ -98,35 +98,42 @@ export default function PaymentForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { class: selectedClass, studentName, studentMatricule, monthsPaid, remainderMonth, remainderAmount, amount, academicYear, receiptNumber } = formData;
+    const { receiptNumber, class: selectedClass, studentName, studentMatricule, monthsPaid, remainderMonth, remainderAmount, amount, academicYear } = formData;
 
-    if (!selectedClass || !studentName || !studentMatricule || monthsPaid.length === 0 || !amount || !academicYear || !receiptNumber) {
-      alert('Veuillez remplir tous les champs obligatoires, y compris le numéro de reçu');
+    if (!receiptNumber || !selectedClass || !studentName || !studentMatricule || monthsPaid.length === 0 || !amount || !academicYear) {
+      alert('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
     setIsProcessing(true);
     try {
-      const paymentToSave = {
+      // Création du paiement sans l'ID
+      const paymentData: Omit<Payment, 'id'> = {
+        receiptNumber,
         studentName,
         studentMatricule,
         monthsPaid,
-        remainder: remainderAmount && remainderMonth ? { month: remainderMonth, amount: parseFloat(remainderAmount) } : undefined,
         amount: parseFloat(amount),
         paymentMethod: 'cash',
         date: new Date().toISOString(),
-        academicYear
+        academicYear,
       };
 
-      const savedPaymentFromDB = await addPayment(paymentToSave);
+      // Ajout de remainder uniquement si rempli
+      if (remainderAmount && remainderMonth) {
+        paymentData.remainder = { month: remainderMonth, amount: parseFloat(remainderAmount) };
+      }
 
-      // ⚡ Solution 1 : ajouter receiptNumber manuellement
-      const savedPayment: Payment = {
-        ...savedPaymentFromDB,
-        receiptNumber
+      // Sauvegarde dans Firestore
+      const savedPayment = await addPayment(paymentData);
+
+      // Ajout de l'ID Firestore
+      const fullPayment: Payment = {
+        id: savedPayment.id,
+        ...paymentData
       };
 
-      setLastPayment(savedPayment);
+      setLastPayment(fullPayment);
       setShowSuccess(true);
       setPaymentCompleted(true);
     } catch (error) {
@@ -138,7 +145,7 @@ export default function PaymentForm() {
   };
 
   const handleNewPayment = () => {
-    setFormData({ class: '', studentName: '', studentMatricule: '', receiptNumber: '', monthsPaid: [], remainderMonth: '', remainderAmount: '', amount: '', academicYear: '' });
+    setFormData({ receiptNumber: '', class: '', studentName: '', studentMatricule: '', monthsPaid: [], remainderMonth: '', remainderAmount: '', amount: '', academicYear: '' });
     setStudentInputType('list');
     setShowSuccess(false);
     setPaymentCompleted(false);
@@ -174,6 +181,13 @@ export default function PaymentForm() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* Numéro de reçu */}
+            <div>
+              <label htmlFor="receiptNumber" className="block text-sm font-medium text-gray-700 mb-2">N° de reçu *</label>
+              <input type="text" id="receiptNumber" name="receiptNumber" value={formData.receiptNumber} onChange={handleInputChange} placeholder="Ex: 001" className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
+            </div>
+
             {/* Classe */}
             <div>
               <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-2">Classe *</label>
@@ -187,12 +201,6 @@ export default function PaymentForm() {
             <div>
               <label htmlFor="academicYear" className="block text-sm font-medium text-gray-700 mb-2">Année académique *</label>
               <input type="text" id="academicYear" name="academicYear" placeholder="2024-2025" value={formData.academicYear} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
-            </div>
-
-            {/* Numéro de reçu */}
-            <div>
-              <label htmlFor="receiptNumber" className="block text-sm font-medium text-gray-700 mb-2">N° de reçu *</label>
-              <input type="text" id="receiptNumber" name="receiptNumber" placeholder="Ex: R0001" value={formData.receiptNumber} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required disabled={paymentCompleted} />
             </div>
 
             {/* Élève */}
@@ -237,12 +245,13 @@ export default function PaymentForm() {
             {/* Reste */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Reste à payer (si partiel)</label>
-              <input type="number" name="remainderAmount" value={formData.remainderAmount} onChange={handleInputChange} placeholder="Montant restant" className="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled={paymentCompleted} />
-              <select name="remainderMonth" value={formData.remainderMonth} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-2" disabled={paymentCompleted}>
+              <input type="number" name="remainderAmount" value={formData.remainderAmount} onChange={handleInputChange} placeholder="Montant restant" className="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled={paymentCompleted || !formData.remainderAmount} />
+              <select name="remainderMonth" value={formData.remainderMonth} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-2" disabled={paymentCompleted || !formData.remainderAmount}>
                 <option value="">Choisir le mois du reste</option>
                 {months.map((month, idx) => <option key={idx} value={month}>{month}</option>)}
               </select>
             </div>
+
           </div>
 
           {/* Boutons */}

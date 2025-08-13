@@ -24,7 +24,7 @@ export default function StudentList() {
 
   const months = [
     'INSCRIPTION', 'REINSCRIPTION', 'FOURNITURE', 'TENUE', 'POLO', 'POLO DE SPORT',
-    'Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
+    'Septembre', 'Octobre', 'Novembre','Décembre','Janvier', 'Février', 'Mars', 'Avril', 'Mai'
   ];
 
   useEffect(() => {
@@ -51,19 +51,26 @@ export default function StudentList() {
 
   const classes = Array.from(new Set(students.map(s => s.class)));
 
-  // ✅ Fonction pour savoir l'état du paiement d'un mois pour un étudiant
+  // ✅ Fonction mise à jour pour gérer paiements partiels et complets
   const getPaymentStatus = (studentName: string, month: string) => {
     const studentPayments = payments.filter(p => p.studentName === studentName);
 
-    const isPaid = studentPayments.some(p =>
-      p.monthsPaid.some(m => m.toLowerCase() === month.toLowerCase())
-    );
+    let isPaid = false;
+    let isPartial = false;
 
-    const isPartial = studentPayments.some(p =>
-      p.remainder?.month.toLowerCase() === month.toLowerCase() && p.remainder.amount > 0
-    );
+    for (const p of studentPayments) {
+      // Si le mois est complètement payé
+      if (p.monthsPaid.some(m => m.toLowerCase() === month.toLowerCase())) {
+        isPaid = true;
+      }
+      // Si un reste à payer existe pour ce mois
+      if (p.remainder?.month.toLowerCase() === month.toLowerCase() && p.remainder.amount > 0) {
+        isPartial = true;
+      }
+    }
 
-    if (isPaid && !isPartial) return 'paid';
+    // Si le mois est à la fois payé et partiel, on considère payé
+    if (isPaid) return 'paid';
     if (isPartial) return 'partial';
     return 'unpaid';
   };
