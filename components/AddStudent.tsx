@@ -115,12 +115,12 @@ export default function AjouterEleve() {
           <option value="3ANS">3ANS</option>
           <option value="4ANS">4ANS</option>
           <option value="5ANS">5ANS</option>
-          <option value="CP1">CP1</option>
-          <option value="CP2">CP2</option>
-          <option value="CE1">CE1</option>
-          <option value="CE2">CE2</option>
-          <option value="CM1">CM1</option>
-          <option value="CM2">CM2</option> 
+          <option value="1ère">1ère</option>
+          <option value="2ème">2ème</option>
+          <option value="3ème">3ème</option>
+          <option value="4ème">4ème</option>
+          <option value="5ème">5ème</option>
+           
         </select>
 
         <button

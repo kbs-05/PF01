@@ -10,6 +10,7 @@ type Student = {
 
 type Payment = {
   studentName: string;
+  studentMatricule?: string;
   month: string;
   amount: number;
   date: string;
@@ -31,9 +32,11 @@ export default function Dashboard() {
         const students: Student[] = await getStudents();
         const payments: Payment[] = await getPayments();
 
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
 
+        // Paiements du mois en cours
         const thisMonthPayments = payments.filter((p) => {
           const paymentDate = new Date(p.date);
           return (
@@ -42,8 +45,9 @@ export default function Dashboard() {
           );
         });
 
-        // Étudiants uniques ayant payé ce mois
-        const uniqueStudentsPaidThisMonth = new Set(thisMonthPayments.map(p => p.studentName));
+        const uniqueStudentsPaidThisMonth = new Set(
+          thisMonthPayments.map(p => p.studentName)
+        );
 
         const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
 
@@ -54,11 +58,21 @@ export default function Dashboard() {
           pendingPayments: students.length - uniqueStudentsPaidThisMonth.size,
         });
 
-        setRecentPayments(
-          payments
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 5)
-        );
+        // Paiements de la semaine en cours
+        const weekPayments = payments.filter(p => {
+          const paymentDate = new Date(p.date);
+          const firstDayOfWeek = new Date();
+          firstDayOfWeek.setDate(now.getDate() - now.getDay()); // dimanche
+          firstDayOfWeek.setHours(0, 0, 0, 0);
+
+          const lastDayOfWeek = new Date(firstDayOfWeek);
+          lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6); // samedi
+          lastDayOfWeek.setHours(23, 59, 59, 999);
+
+          return paymentDate >= firstDayOfWeek && paymentDate <= lastDayOfWeek;
+        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        setRecentPayments(weekPayments);
       } catch (error) {
         console.error('Erreur chargement données tableau de bord:', error);
       }
@@ -127,7 +141,7 @@ export default function Dashboard() {
       </div>
 
       <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-4">Derniers paiements</h2>
+        <h2 className="text-xl font-bold mb-4">Derniers paiements (cette semaine)</h2>
         <ul className="divide-y divide-gray-200">
           {recentPayments.map((payment, index) => (
             <li key={index} className="py-2 flex justify-between text-sm">
@@ -137,6 +151,9 @@ export default function Dashboard() {
               <span>{new Date(payment.date).toLocaleDateString()}</span>
             </li>
           ))}
+          {recentPayments.length === 0 && (
+            <li className="py-2 text-center text-gray-500">Aucun paiement cette semaine</li>
+          )}
         </ul>
       </div>
     </div>

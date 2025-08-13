@@ -45,7 +45,7 @@ export default function PaymentForm() {
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
   ];
 
-  const classes = ['2ANS', '3ANS', '4ANS', '5ANS', 'CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2'];
+  const classes = ['2ANS', '3ANS', '4ANS', '5ANS', '1ère', '2ème', '3ème', '4ème', '5ème'];
 
   useEffect(() => {
     const fetchStudents = async () => {
