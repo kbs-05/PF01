@@ -26,8 +26,8 @@ export interface Payment {
   id: string;
   studentName: string;
   studentMatricule: string;
-  monthsPaid: string[];                        // ✅ Mois payés
-  remainder?: { month: string; amount: number }; // ✅ Reste éventuel
+  monthsPaid: string[];
+  remainder?: { month: string; amount: number }; // jamais null
   amount: number;
   paymentMethod: string;
   date: string;
@@ -77,7 +77,21 @@ export const deleteStudent = async (id: string): Promise<void> => {
 export const getPayments = async (): Promise<Payment[]> => {
   const paymentsCol = collection(db, 'payments');
   const snapshot = await getDocs(paymentsCol);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
+
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      studentName: data.studentName,
+      studentMatricule: data.studentMatricule,
+      monthsPaid: data.monthsPaid || [],
+      remainder: data.remainder ?? undefined, // null → undefined
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      date: data.date instanceof Timestamp ? data.date.toDate().toISOString() : data.date,
+      academicYear: data.academicYear,
+    } as Payment;
+  });
 };
 
 // Ajouter un paiement
@@ -93,4 +107,20 @@ export const addPayment = async (payment: Omit<Payment, 'id'>): Promise<Payment>
 export const deletePayment = async (id: string): Promise<void> => {
   const docRef = doc(db, 'payments', id);
   await deleteDoc(docRef);
+};
+
+// ---------------- Mise à jour du reste ----------------
+
+// Met à jour le reste d’un paiement (remainder) ou le supprime si payé
+export const updatePaymentRemainder = async (
+  paymentId: string,
+  remainder: { month: string; amount: number } | undefined
+): Promise<void> => {
+  const docRef = doc(db, 'payments', paymentId);
+  if (!remainder) {
+    // Supprimer le reste si payé complètement
+    await updateDoc(docRef, { remainder: undefined });
+  } else {
+    await updateDoc(docRef, { remainder });
+  }
 };

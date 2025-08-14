@@ -5,8 +5,8 @@ import { addPayment, getStudents } from '../lib/database';
 import { generateReceipt, downloadReceipt } from '../lib/receipt';
 
 type Payment = {
-  id: string;                // ID Firestore
-  receiptNumber: string;      // numéro de reçu saisi manuellement
+  id: string;
+  receiptNumber: string;
   studentName: string;
   studentMatricule: string;
   monthsPaid: string[];
@@ -107,27 +107,30 @@ export default function PaymentForm() {
 
     setIsProcessing(true);
     try {
-      // Création du paiement sans l'ID
       const paymentData: Omit<Payment, 'id'> = {
         receiptNumber,
         studentName,
         studentMatricule,
-        monthsPaid,
+        monthsPaid: [...monthsPaid],
         amount: parseFloat(amount),
         paymentMethod: 'cash',
         date: new Date().toISOString(),
         academicYear,
       };
 
-      // Ajout de remainder uniquement si rempli
-      if (remainderAmount && remainderMonth) {
-        paymentData.remainder = { month: remainderMonth, amount: parseFloat(remainderAmount) };
+      // ✅ Gestion du reste
+      const remainderAmountNum = parseFloat(remainderAmount);
+      if (remainderMonth && remainderAmountNum > 0) {
+        paymentData.remainder = { month: remainderMonth, amount: remainderAmountNum };
       }
 
-      // Sauvegarde dans Firestore
+      // Si le reste est soldé, ajouter le mois à monthsPaid
+      if (remainderMonth && remainderAmountNum === 0 && !paymentData.monthsPaid.includes(remainderMonth)) {
+        paymentData.monthsPaid.push(remainderMonth);
+      }
+
       const savedPayment = await addPayment(paymentData);
 
-      // Ajout de l'ID Firestore
       const fullPayment: Payment = {
         id: savedPayment.id,
         ...paymentData
@@ -181,7 +184,6 @@ export default function PaymentForm() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
             {/* Numéro de reçu */}
             <div>
               <label htmlFor="receiptNumber" className="block text-sm font-medium text-gray-700 mb-2">N° de reçu *</label>
@@ -245,13 +247,12 @@ export default function PaymentForm() {
             {/* Reste */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Reste à payer (si partiel)</label>
-              <input type="number" name="remainderAmount" value={formData.remainderAmount} onChange={handleInputChange} placeholder="Montant restant" className="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled={paymentCompleted || !formData.remainderAmount} />
-              <select name="remainderMonth" value={formData.remainderMonth} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-2" disabled={paymentCompleted || !formData.remainderAmount}>
+              <input type="number" name="remainderAmount" value={formData.remainderAmount} onChange={handleInputChange} placeholder="Montant restant" className="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled={paymentCompleted} />
+              <select name="remainderMonth" value={formData.remainderMonth} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-2" disabled={paymentCompleted}>
                 <option value="">Choisir le mois du reste</option>
                 {months.map((month, idx) => <option key={idx} value={month}>{month}</option>)}
               </select>
             </div>
-
           </div>
 
           {/* Boutons */}

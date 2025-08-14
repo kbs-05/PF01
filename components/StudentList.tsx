@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getStudents, getPayments } from '../lib/database'; // adapte le chemin si besoin
+import { getStudents, getPayments } from '../lib/database';
 
 interface Student {
   id: string;
@@ -11,9 +11,14 @@ interface Student {
 }
 
 interface Payment {
+  id: string;
   studentName: string;
   monthsPaid: string[];
   remainder?: { month: string; amount: number };
+  amount: number;
+  paymentMethod: string;
+  date: string;
+  academicYear: string;
 }
 
 export default function StudentList() {
@@ -51,30 +56,24 @@ export default function StudentList() {
 
   const classes = Array.from(new Set(students.map(s => s.class)));
 
-  // ✅ Fonction mise à jour pour gérer paiements partiels et complets
+  // ---------------- Logique paiement ----------------
   const getPaymentStatus = (studentName: string, month: string) => {
-    const studentPayments = payments.filter(p => p.studentName === studentName);
+    const studentPayments = payments.filter(p => p.studentName === studentName && p.monthsPaid.includes(month));
 
-    let isPaid = false;
-    let isPartial = false;
+    if (studentPayments.length === 0) return 'unpaid';
 
+    // Si au moins un paiement pour ce mois n'a pas de reste ou reste = 0 => payé
     for (const p of studentPayments) {
-      // Si le mois est complètement payé
-      if (p.monthsPaid.some(m => m.toLowerCase() === month.toLowerCase())) {
-        isPaid = true;
-      }
-      // Si un reste à payer existe pour ce mois
-      if (p.remainder?.month.toLowerCase() === month.toLowerCase() && p.remainder.amount > 0) {
-        isPartial = true;
+      if (!p.remainder || (p.remainder.month !== month) || p.remainder.amount === 0) {
+        return 'paid';
       }
     }
 
-    // Si le mois est à la fois payé et partiel, on considère payé
-    if (isPaid) return 'paid';
-    if (isPartial) return 'partial';
-    return 'unpaid';
+    // Sinon, il y a un reste pour ce mois => partiel
+    return 'partial';
   };
 
+  // ---------------- Export CSV ----------------
   const exportToCSV = () => {
     const csvData = [
       ['Matricule', 'Nom', 'Classe', ...months],
