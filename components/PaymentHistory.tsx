@@ -13,7 +13,7 @@ type Remainder = {
 type Payment = {
   id: string;
   studentName: string;
-  receiptNumber: string;
+  studentMatricule: string;
   monthsPaid: string[]; // mois payés
   remainder?: Remainder; // reste éventuel
   amount: number; // montant payé
