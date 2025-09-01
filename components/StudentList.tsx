@@ -171,4 +171,4 @@ export default function StudentList() {
       </div>
     </div>
   );
-}je veux que pour le matricule il recupere ca dans receiptNumber et non dans studentMatricule qui se tropuve dans firestore
+}
