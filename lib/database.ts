@@ -24,8 +24,8 @@ export interface Student {
 
 export interface Payment {
   id: string;
+  receiptNumber: string; // 🔥 remplacé studentMatricule
   studentName: string;
-  studentMatricule: string;
   monthsPaid: string[];
   remainder?: { month: string; amount: number }; // jamais null
   amount: number;
@@ -82,8 +82,8 @@ export const getPayments = async (): Promise<Payment[]> => {
     const data = doc.data();
     return {
       id: doc.id,
+      receiptNumber: data.receiptNumber, // 🔥 bien récupéré
       studentName: data.studentName,
-      studentMatricule: data.receiptNumber,
       monthsPaid: data.monthsPaid || [],
       remainder: data.remainder ?? undefined, // null → undefined
       amount: data.amount,
