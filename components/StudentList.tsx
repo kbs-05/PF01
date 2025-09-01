@@ -5,13 +5,13 @@ import { getStudents, getPayments } from '../lib/database';
 
 interface Student {
   id: string;
+  matricule: string;
   name: string;
   class: string;
 }
 
 interface Payment {
   id: string;
-  receiptNumber: string; // 🔥 reçu Firestore
   studentName: string;
   monthsPaid: string[];
   remainder?: { month: string; amount: number };
@@ -29,8 +29,7 @@ export default function StudentList() {
 
   const months = [
     'INSCRIPTION', 'REINSCRIPTION', 'FOURNITURE', 'TENUE', 'POLO', 'POLO DE SPORT',
-    'Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier',
-    'Février', 'Mars', 'Avril', 'Mai'
+    'Septembre', 'Octobre', 'Novembre','Décembre','Janvier', 'Février', 'Mars', 'Avril', 'Mai'
   ];
 
   useEffect(() => {
@@ -49,18 +48,9 @@ export default function StudentList() {
   }, []);
 
   const filteredStudents = students.filter(student => {
-    const studentPayment = payments.find(
-      p => p.studentName === student.name
-    );
-    const receiptNumber = studentPayment ? studentPayment.receiptNumber : '';
-
-    const matchesSearch =
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      receiptNumber.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesClass =
-      selectedClass === '' || student.class === selectedClass;
-
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) 
+                          || student.matricule.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClass = selectedClass === '' || student.class === selectedClass;
     return matchesSearch && matchesClass;
   });
 
@@ -68,43 +58,36 @@ export default function StudentList() {
 
   // ---------------- Logique paiement ----------------
   const getPaymentStatus = (studentName: string, month: string) => {
-    const studentPayments = payments.filter(
-      p => p.studentName === studentName && p.monthsPaid.includes(month)
-    );
+    const studentPayments = payments.filter(p => p.studentName === studentName && p.monthsPaid.includes(month));
 
     if (studentPayments.length === 0) return 'unpaid';
 
+    // Si au moins un paiement pour ce mois n'a pas de reste ou reste = 0 => payé
     for (const p of studentPayments) {
-      if (!p.remainder || p.remainder.month !== month || p.remainder.amount === 0) {
+      if (!p.remainder || (p.remainder.month !== month) || p.remainder.amount === 0) {
         return 'paid';
       }
     }
 
+    // Sinon, il y a un reste pour ce mois => partiel
     return 'partial';
   };
 
   // ---------------- Export CSV ----------------
   const exportToCSV = () => {
     const csvData = [
-      ['Reçu', 'Nom', 'Classe', ...months],
-      ...filteredStudents.map(student => {
-        const studentPayment = payments.find(
-          p => p.studentName === student.name
-        );
-        const receiptNumber = studentPayment ? studentPayment.receiptNumber : '';
-
-        return [
-          receiptNumber,
-          student.name,
-          student.class,
-          ...months.map(month => {
-            const status = getPaymentStatus(student.name, month);
-            if (status === 'paid') return 'Payé';
-            if (status === 'partial') return 'Partiel';
-            return 'Non payé';
-          })
-        ];
-      })
+      ['Matricule', 'Nom', 'Classe', ...months],
+      ...filteredStudents.map(student => [
+        student.matricule,
+        student.name,
+        student.class,
+        ...months.map(month => {
+          const status = getPaymentStatus(student.name, month);
+          if (status === 'paid') return 'Payé';
+          if (status === 'partial') return 'Partiel';
+          return 'Non payé';
+        })
+      ])
     ];
 
     const csvContent = csvData.map(row => row.join(',')).join('\n');
@@ -132,7 +115,7 @@ export default function StudentList() {
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <input
           type="text"
-          placeholder="Rechercher par nom ou numéro de reçu..."
+          placeholder="Rechercher un élève ou matricule..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-1 px-4 py-2 border rounded-lg"
@@ -143,9 +126,7 @@ export default function StudentList() {
           className="sm:w-48 px-3 py-2 border rounded-lg"
         >
           <option value="">Toutes les classes</option>
-          {classes.map((cls, idx) => (
-            <option key={idx} value={cls}>{cls}</option>
-          ))}
+          {classes.map((cls, idx) => <option key={idx} value={cls}>{cls}</option>)}
         </select>
       </div>
 
@@ -153,7 +134,7 @@ export default function StudentList() {
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th>Reçu</th>
+              <th>Matricule</th>
               <th>Élève</th>
               <th>Classe</th>
               {months.map((month, idx) => (
@@ -164,42 +145,30 @@ export default function StudentList() {
           <tbody>
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={3 + months.length} className="text-center py-8">
-                  Aucun élève trouvé
-                </td>
+                <td colSpan={3 + months.length} className="text-center py-8">Aucun élève trouvé</td>
               </tr>
             ) : (
-              filteredStudents.map(student => {
-                const studentPayment = payments.find(
-                  p => p.studentName === student.name
-                );
-                const receiptNumber = studentPayment
-                  ? studentPayment.receiptNumber
-                  : '—';
-
-                return (
-                  <tr key={student.id}>
-                    <td>{receiptNumber}</td>
-                    <td>{student.name}</td>
-                    <td>{student.class}</td>
-                    {months.map((month, idx) => {
-                      const status = getPaymentStatus(student.name, month);
-                      return (
-                        <td key={idx} className="text-center">
-                          {status === 'paid' && '✅'}
-                          {status === 'partial' && '⚠️'}
-                          {status === 'unpaid' && '❌'}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })
+              filteredStudents.map(student => (
+                <tr key={student.id}>
+                  <td>{student.matricule}</td>
+                  <td>{student.name}</td>
+                  <td>{student.class}</td>
+                  {months.map((month, idx) => {
+                    const status = getPaymentStatus(student.name, month);
+                    return (
+                      <td key={idx} className="text-center">
+                        {status === 'paid' && '✅'}
+                        {status === 'partial' && '⚠️'}
+                        {status === 'unpaid' && '❌'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
             )}
           </tbody>
         </table>
       </div>
     </div>
   );
-}
-
+}je veux que pour le matricule il recupere ca dans receiptNumber et non dans studentMatricule qui se tropuve dans firestore
