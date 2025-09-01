@@ -83,7 +83,7 @@ export const getPayments = async (): Promise<Payment[]> => {
     return {
       id: doc.id,
       studentName: data.studentName,
-      studentMatricule: data.studentMatricule,
+      studentMatricule: data.receiptNumber,
       monthsPaid: data.monthsPaid || [],
       remainder: data.remainder ?? undefined, // null → undefined
       amount: data.amount,
